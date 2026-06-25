@@ -106,8 +106,8 @@
     padding:7px 15px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
   .modetoggle .mbtn.active{ background:var(--rose-deep); color:var(--bone); box-shadow:0 0 14px -4px var(--rose); }
   .modehint{ color:var(--muted); font-size:14px; font-style:italic; }
-  .grid.quick .cell:not(.blank){ cursor:cell; }
-  .grid.quick{ touch-action:none; -webkit-user-select:none; user-select:none; }
+  .grid.qmode .cell:not(.blank){ cursor:cell; }
+  .grid.qmode{ touch-action:none; -webkit-user-select:none; user-select:none; }
   .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
   .cell{ position:relative; min-height:104px; border:1px solid var(--line);
     border-radius:11px; background:var(--ink); padding:7px 7px 9px; cursor:pointer;
@@ -518,7 +518,7 @@
       cell.addEventListener("click",()=>{ if(mode==="quick") return; openPop(key); });
       grid.appendChild(cell);
     }
-    $("#grid").classList.toggle("quick", mode==="quick");
+    $("#grid").classList.toggle("qmode", mode==="quick");
   }
   function hexA(hex,a){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/(.)/g,"$1$1"):h,16);
     return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")"; }
