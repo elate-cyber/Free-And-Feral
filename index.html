@@ -80,8 +80,11 @@
     border:1px solid var(--line); border-radius:999px; background:var(--ink);
     cursor:pointer; transition:border-color .15s, box-shadow .15s; }
   .chip.active{ border-color:var(--swatch); box-shadow:0 0 0 1px var(--swatch),0 0 18px -4px var(--swatch); }
-  .chip .dot{ width:16px; height:16px; border-radius:50%; background:var(--swatch);
-    box-shadow:0 0 8px -1px var(--swatch); flex:none; }
+  .chip .dot{ position:relative; width:18px; height:18px; border-radius:50%; background:var(--swatch);
+    box-shadow:0 0 8px -1px var(--swatch); flex:none; cursor:pointer; overflow:hidden;
+    border:1px solid rgba(255,255,255,.25); }
+  .chip .dot .cpick{ position:absolute; inset:-4px; width:calc(100% + 8px); height:calc(100% + 8px);
+    opacity:0; border:none; padding:0; margin:0; cursor:pointer; }
   .chip .nm{ color:var(--bone); font-family:"Cormorant Garamond",serif; font-size:18px; }
   .chip .x{ color:var(--muted); font-size:15px; padding:0 2px; line-height:1; }
   .chip .x:hover{ color:var(--rose); }
@@ -109,13 +112,16 @@
   .grid.qmode .cell:not(.blank){ cursor:cell; }
   .grid.qmode{ touch-action:none; -webkit-user-select:none; user-select:none; }
   .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
-  .cell{ position:relative; min-height:104px; border:1px solid var(--line);
-    border-radius:11px; background:var(--ink); padding:7px 7px 9px; cursor:pointer;
+  .cell{ position:relative; min-height:66px; border:1px solid var(--line);
+    border-radius:11px; background:var(--ink); padding:6px 6px 7px; cursor:pointer;
     overflow:hidden; transition:border-color .15s, transform .08s; }
   .cell.blank{ background:transparent; border-color:transparent; cursor:default; }
   .cell:not(.blank):hover{ border-color:var(--rose); }
   .cell:active:not(.blank){ transform:scale(.985); }
+  .cell .cellhead{ display:flex; align-items:center; justify-content:space-between; gap:4px; }
   .cell .num{ font-family:"EB Garamond",serif; font-size:14px; color:var(--muted); }
+  .cell .cellemoji{ display:flex; align-items:center; gap:1px; font-size:12px; line-height:1; }
+  .cell .cellemoji .more{ font-size:9px; color:var(--muted); }
   .cell.today .num{ color:var(--rose); font-weight:600; }
   .cell.today{ border-color:var(--rose-deep); }
 
@@ -133,6 +139,11 @@
   .sticker .tx{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:74px; }
   .more{ color:var(--muted); font-size:11px; }
 
+  .whodots{ position:absolute; left:6px; right:6px; bottom:6px; display:flex; flex-wrap:wrap; gap:3px; justify-content:flex-start; }
+  .wd{ width:10px; height:10px; border-radius:50%; box-sizing:border-box; }
+  .wd.full{ background:var(--wc); box-shadow:0 0 5px -1px var(--wc); }
+  .wd.part{ background:transparent; border:2px solid var(--wc); }
+  .wdmore{ font-family:"EB Garamond",serif; font-size:9px; color:var(--muted); line-height:10px; }
   .segs{ position:absolute; left:7px; right:7px; bottom:8px; display:flex; gap:4px; }
   .seg{ flex:1; height:20px; border-radius:5px; background:var(--velvet-2);
     border:1px solid var(--line); position:relative; overflow:hidden; }
@@ -159,6 +170,15 @@
   .recap-card .w{ color:var(--moon); font-family:"EB Garamond",serif; font-size:12px;
     letter-spacing:.06em; text-transform:uppercase; margin-top:3px; }
   .recap-sum{ margin:0 0 14px; color:var(--lilac); } .recap-sum b{ color:var(--moon); }
+  .rrow{ display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:var(--ink); border:1px solid var(--line); border-radius:9px; padding:9px 13px; margin-bottom:7px; }
+  .rrow.weekend{ border-left:3px solid var(--rose); }
+  .rrow.past{ opacity:.45; }
+  .rrow .rd{ color:var(--bone); font-family:"Cormorant Garamond",serif; font-size:19px; }
+  .rrow .rw{ color:var(--moon); font-family:"EB Garamond",serif; font-size:12px;
+    letter-spacing:.05em; text-transform:uppercase; text-align:right; }
+  .rrow .blk{ display:flex; align-items:center; gap:6px; color:var(--lilac); font-size:14px; text-align:right; }
+  .rrow .bdot{ width:11px; height:11px; border-radius:50%; flex:none; }
 
   /* activities & trips */
   .card{ background:var(--ink); border:1px solid var(--line); border-radius:11px;
@@ -218,7 +238,9 @@
 
   .tools{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
   @media (max-width:560px){
-    .cell{ min-height:90px; } .seg{ height:16px; } body{ font-size:16px; }
+    .cell{ min-height:58px; padding:5px 5px 6px; } body{ font-size:16px; }
+    .cell .num{ font-size:13px; }
+    .wd{ width:9px; height:9px; } .whodots{ gap:2px; bottom:5px; }
     .sticker .tx{ max-width:54px; }
   }
 </style>
@@ -262,17 +284,10 @@
     </div>
     <div class="grid" id="grid"></div>
     <p class="legend-note">
-      Each day has three slivers — <b>morning · afternoon · evening</b> — that fill with your color when you mark yourself <b>busy</b> then.
-      The days that <b>glow</b> are the ones everyone still has a free window.
+      Each colored dot is a friend who's busy that day — a <b>solid</b> dot means all day, a <b>ring</b> means only part of it.
+      The days that <b>glow</b> are the ones everyone still has a free window. Tap a day for the morning / afternoon / evening detail.
       Pinned plans show up as little stickers; trips show as colored ribbons.
     </p>
-  </section>
-
-  <!-- RECAP -->
-  <section class="panel">
-    <p class="panel-title"><span class="glyph">✦</span> Monthly Recap &nbsp;·&nbsp; days we all overlap</p>
-    <p class="recap-sum" id="recapSum"></p>
-    <div id="recap"></div>
   </section>
 
   <!-- ACTIVITY WISHLIST -->
@@ -438,15 +453,19 @@
     fr.forEach(f=>{
       const c=document.createElement("div"); c.className="chip"+(f.id===activeId?" active":"");
       c.style.setProperty("--swatch",f.color);
-      c.innerHTML='<span class="dot"></span><span class="nm"></span><span class="x" title="remove">✕</span>';
+      c.innerHTML='<label class="dot" title="Tap to choose your color"><input type="color" class="cpick" value="'+f.color+'"></label>'+
+        '<span class="nm"></span><span class="x" title="remove">✕</span>';
       c.querySelector(".nm").textContent=f.name;
-      c.addEventListener("click",e=>{ if(e.target.classList.contains("x"))return; activeId=f.id; render(); });
+      c.addEventListener("click",e=>{ if(e.target.classList.contains("x"))return; if(e.target.closest(".dot"))return; activeId=f.id; render(); });
+      c.querySelector(".cpick").addEventListener("change",ev=>{
+        const col=ev.target.value; state.friends[f.id].color=col; write("friends/"+f.id+"/color",col); touch();
+      });
       c.querySelector(".x").addEventListener("click",()=>removeFriend(f.id));
       box.appendChild(c);
     });
     const af=state.friends[activeId];
-    $("#editingNote").innerHTML=af?('Tapping a day marks it as busy for <b>'+esc(af.name)+'</b>. Tap another name to switch.')
-      :'Tap your name above to start marking the days you\u2019re busy.';
+    $("#editingNote").innerHTML=af?('Tapping a day marks it as busy for <b>'+esc(af.name)+'</b>. Tap another name to switch, or tap a color dot to pick your own color.')
+      :'Tap your name above to start marking the days you\u2019re busy. Tap your color dot any time to choose your own color.';
   }
 
   // ---- calendar ----
@@ -479,7 +498,13 @@
       const key=keyOf(y,m,d), cell=document.createElement("div");
       cell.className="cell"+(key===todayKey?" today":"");
       const open=openSegments(key); if(open.length) cell.classList.add("mutual");
-      cell.innerHTML='<div class="num">'+d+'</div>';
+      // top row: date number on the left, plan emoji(s) on the right
+      const acts=amap[key]||[];
+      let emojis="";
+      if(acts.length){ emojis='<span class="cellemoji">'+
+        acts.slice(0,3).map(o=>'<span>'+(o.a.emoji||"✨")+'</span>').join("")+
+        (acts.length>3?'<span class="more">+'+(acts.length-3)+'</span>':'')+'</span>'; }
+      cell.innerHTML='<div class="cellhead"><span class="num">'+d+'</span>'+emojis+'</div>';
 
       // trip ribbons
       const trips=tmap[key]||[];
@@ -490,25 +515,19 @@
           rb.appendChild(r); });
         cell.appendChild(rb);
       }
-      // activity stickers
-      const acts=amap[key]||[];
-      if(acts.length){ const st=document.createElement("div"); st.className="stickers";
-        acts.slice(0,2).forEach(o=>{ const s=document.createElement("span"); s.className="sticker";
-          s.innerHTML='<span>'+(o.a.emoji||"✨")+'</span><span class="tx"></span>';
-          s.querySelector(".tx").textContent=o.a.text; st.appendChild(s); });
-        if(acts.length>2){ const mo=document.createElement("span"); mo.className="more"; mo.textContent="+"+(acts.length-2); st.appendChild(mo); }
-        cell.appendChild(st);
+      // who's busy that day — one clearly separated dot per friend, in their color
+      const busyFr=fr.filter(f=>{ const c=getCell(key,f.id); return c.m||c.a||c.e; });
+      if(busyFr.length){
+        const wd=document.createElement("div"); wd.className="whodots";
+        const cap=6;
+        busyFr.slice(0,cap).forEach(f=>{ const c=getCell(key,f.id); const allday=c.m&&c.a&&c.e;
+          const d=document.createElement("span"); d.className="wd"+(allday?" full":" part");
+          d.style.setProperty("--wc",f.color);
+          d.title=f.name+(allday?" — busy all day":" — busy part of the day");
+          wd.appendChild(d); });
+        if(busyFr.length>cap){ const mo=document.createElement("span"); mo.className="wdmore"; mo.textContent="+"+(busyFr.length-cap); wd.appendChild(mo); }
+        cell.appendChild(wd);
       }
-      // busy slivers
-      const segWrap=document.createElement("div"); segWrap.className="segs";
-      SEGS.forEach(s=>{ const seg=document.createElement("div"); seg.className="seg";
-        const busyHere=fr.filter(f=>getCell(key,f.id)[s.k]);
-        if(busyHere.length){ const stack=document.createElement("div"); stack.className="stack";
-          busyHere.forEach(f=>{ const i=document.createElement("i"); i.style.background=f.color; stack.appendChild(i); });
-          seg.appendChild(stack);
-        } else { seg.innerHTML='<span class="lbl">'+s.name[0]+'</span>'; }
-        segWrap.appendChild(seg); });
-      cell.appendChild(segWrap);
       cell.dataset.key=key;
       // clear feedback: tint the cell when the active person is busy that day
       if(activeId){ const mc=getCell(key,activeId);
@@ -523,18 +542,67 @@
   function hexA(hex,a){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/(.)/g,"$1$1"):h,16);
     return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")"; }
 
-  // ---- recap ----
+  // ---- overview ----
+  let recapTab="free";
+  function dayInfo(key){
+    const fr=ordFriends();
+    const segInfo=SEGS.map(s=>({ name:s.name, busy:fr.filter(f=>getCell(key,f.id)[s.k]) }));
+    const open=segInfo.filter(s=>s.busy.length===0).map(s=>s.name);
+    const oneAway=segInfo.filter(s=>s.busy.length===1).map(s=>({seg:s.name, who:s.busy[0]}));
+    return { open, oneAway };
+  }
   function renderRecap(){
     const y=view.getFullYear(), m=view.getMonth(), days=new Date(y,m+1,0).getDate();
-    const hits=[]; for(let d=1; d<=days; d++){ const k=keyOf(y,m,d), o=openSegments(k); if(o.length) hits.push({d,o}); }
-    const sum=$("#recapSum"), list=$("#recap");
-    if(ordFriends().length<2){ sum.innerHTML=""; list.className=""; list.innerHTML='<p class="recap-empty">Add at least two friends to find overlapping free days.</p>'; return; }
-    if(!hits.length){ sum.innerHTML=""; list.className=""; list.innerHTML='<p class="recap-empty">No shared free windows this month yet — or everyone\u2019s booked solid!</p>'; return; }
-    sum.innerHTML='In <b>'+MONTHS[m]+'</b> the crew has <b>'+hits.length+'</b> day'+(hits.length>1?'s':'')+' with a window everyone is free.';
-    list.className="recap-list"; list.innerHTML="";
-    hits.forEach(h=>{ const dt=new Date(y,m,h.d), c=document.createElement("div"); c.className="recap-card";
-      c.innerHTML='<div class="d">'+WD[dt.getDay()]+' '+MONTHS[m].slice(0,3)+' '+h.d+'</div><div class="w">free: '+h.o.join(" · ")+'</div>';
-      list.appendChild(c); });
+    const sum=$("#recapSum"), hint=$("#recapHint"), list=$("#recap"); list.className="";
+    if(ordFriends().length<2){ sum.innerHTML=""; hint.textContent=""; $("#recapTabs").style.display="none";
+      list.innerHTML='<p class="recap-empty">Add at least two friends to see when everyone overlaps.</p>'; return; }
+    $("#recapTabs").style.display="inline-flex";
+
+    const tStart=new Date(); tStart.setHours(0,0,0,0);
+    const freeDays=[], weekendFree=[], almostDays=[];
+    for(let d=1; d<=days; d++){
+      const k=keyOf(y,m,d), info=dayInfo(k), dt=new Date(y,m,d), wknd=(dt.getDay()===0||dt.getDay()===6);
+      const past=dt<tStart;
+      if(info.open.length){ const row={d,dt,k,wknd,past,windows:info.open};
+        freeDays.push(row); if(wknd) weekendFree.push(row); }
+      else if(info.oneAway.length){ almostDays.push({d,dt,k,wknd,past,oneAway:info.oneAway}); }
+    }
+
+    // headline stat + next free day
+    const upcoming=freeDays.filter(r=>!r.past);
+    const next=upcoming[0];
+    const nextTxt=next?('Next: <b>'+WDL[next.dt.getDay()]+' '+MONTHS[m].slice(0,3)+' '+next.d+'</b>.'):'None left this month.';
+    sum.innerHTML='In <b>'+MONTHS[m]+'</b> there '+(freeDays.length===1?'is':'are')+' <b>'+freeDays.length+'</b> day'+(freeDays.length===1?'':'s')+
+      ' everyone\u2019s free'+(weekendFree.length?(' ('+weekendFree.length+' on weekends)'):'')+'. '+nextTxt;
+
+    const hints={ free:"Days with a window that works for the whole crew.",
+      weekend:"Free days that land on a Saturday or Sunday.",
+      almost:"So close — everyone\u2019s free except one person. Nudge them and it works." };
+    hint.textContent=hints[recapTab];
+
+    let rows, empty;
+    if(recapTab==="weekend"){ rows=weekendFree; empty="No free weekends this month yet."; }
+    else if(recapTab==="almost"){ rows=almostDays; empty="No almost-there days — everyone's either fully free or fully booked."; }
+    else { rows=freeDays; empty="No days everyone's free yet this month."; }
+
+    list.innerHTML="";
+    if(!rows.length){ list.innerHTML='<p class="recap-empty">'+empty+'</p>'; return; }
+    rows.forEach(r=>{
+      const row=document.createElement("div");
+      row.className="rrow"+(r.wknd?" weekend":"")+(r.past?" past":"");
+      const date='<span class="rd">'+WD[r.dt.getDay()]+' '+MONTHS[m].slice(0,3)+' '+r.d+'</span>';
+      let right="";
+      if(recapTab==="almost"){
+        const o=r.oneAway[0];
+        right='<span class="blk"><span class="bdot" style="background:'+o.who.color+'"></span>'+
+          esc(o.who.name)+' busy · '+o.seg.toLowerCase()+' open for the rest</span>';
+      } else {
+        const allDay=r.windows.length===3;
+        right='<span class="rw">'+(allDay?"free all day":("free "+r.windows.join(" · ").toLowerCase()))+'</span>';
+      }
+      row.innerHTML=date+right;
+      list.appendChild(row);
+    });
   }
 
   // ---- interest bubbles (shared by acts + trips) ----
@@ -736,7 +804,7 @@
     r.readAsText(file); e.target.value=""; });
   function flash(sel,msg){ const b=$(sel), old=b.textContent; b.textContent=msg; setTimeout(()=>b.textContent=old,1400); }
 
-  function render(){ renderFriends(); renderCalendar(); renderRecap(); renderActs(); renderTrips();
+  function render(){ renderFriends(); renderCalendar(); renderActs(); renderTrips();
     if(popKey){ renderPinned(); } }
 
   // ---- seed (local mode only, so it's not empty on first open) ----
