@@ -72,6 +72,8 @@
   .btn:hover{ filter:brightness(1.12); } .btn:active{ transform:translateY(1px); }
   .btn.ghost{ background:transparent; color:var(--lilac); border-color:var(--line); }
   .btn.ghost:hover{ border-color:var(--rose); color:var(--bone); }
+  .btn.danger{ background:#7c1b34; border-color:#b3325a; }
+  .btn.danger:hover{ filter:brightness(1.12); }
   .btn.tiny{ padding:6px 11px; font-size:11px; }
 
   /* friends / legend */
@@ -342,6 +344,18 @@
   </div>
 </div>
 
+<!-- CONFIRM REMOVE -->
+<div class="overlay" id="confirmOverlay">
+  <div class="pop" style="width:min(380px,100%)">
+    <h3 id="confirmTitle">Remove from the crew?</h3>
+    <p class="who" id="confirmMsg" style="margin-bottom:18px; font-style:normal; color:var(--lilac);"></p>
+    <div class="quick">
+      <button class="btn ghost" id="confirmCancel">Cancel</button>
+      <button class="btn danger" id="confirmOk">Remove</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   /* ============================================================
@@ -460,7 +474,10 @@
       c.querySelector(".cpick").addEventListener("change",ev=>{
         const col=ev.target.value; state.friends[f.id].color=col; write("friends/"+f.id+"/color",col); touch();
       });
-      c.querySelector(".x").addEventListener("click",()=>removeFriend(f.id));
+      c.querySelector(".x").addEventListener("click",e=>{ e.stopPropagation();
+        askConfirm("Remove "+f.name+"?",
+          "This erases "+f.name+"\u2019s color, every busy day they marked, and any activities or trips they joined. It can\u2019t be undone.",
+          ()=>removeFriend(f.id)); });
       box.appendChild(c);
     });
     const af=state.friends[activeId];
@@ -723,6 +740,14 @@
   }
   function closePop(){ $("#overlay").classList.remove("show"); popKey=null; }
 
+  // confirmation dialog (used for removing a person)
+  let confirmCb=null;
+  function askConfirm(title,msg,onYes){
+    $("#confirmTitle").textContent=title; $("#confirmMsg").textContent=msg;
+    confirmCb=onYes; $("#confirmOverlay").classList.add("show");
+  }
+  function closeConfirm(){ $("#confirmOverlay").classList.remove("show"); confirmCb=null; }
+
   // ---- misc ----
   function prettyKey(k){ const [y,m,d]=k.split("-").map(Number); return WD[new Date(y,m,d).getDay()]+" "+MONTHS[m].slice(0,3)+" "+d; }
   function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -781,7 +806,10 @@
   $("#todayBtn").addEventListener("click",()=>{ view=new Date(); render(); });
   $("#popDone").addEventListener("click",closePop);
   $("#overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closePop(); });
-  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePop(); });
+  $("#confirmCancel").addEventListener("click",closeConfirm);
+  $("#confirmOverlay").addEventListener("click",e=>{ if(e.target.id==="confirmOverlay") closeConfirm(); });
+  $("#confirmOk").addEventListener("click",()=>{ const cb=confirmCb; closeConfirm(); if(cb) cb(); });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closePop(); closeConfirm(); } });
   $("#freeAll").addEventListener("click",()=>{ setCell(popKey,activeId,{m:false,a:false,e:false}); renderSegEdit(); });
   $("#busyAll").addEventListener("click",()=>{ setCell(popKey,activeId,{m:true,a:true,e:true}); renderSegEdit(); });
 
