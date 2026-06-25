@@ -1,9 +1,9 @@
-<!-- Free &amp; Feral — a shared availability calendar for a group of friends.
+<!-- Free and Feral — a shared availability calendar for a group of friends.
      Works locally out of the box. Paste your Firebase config below to make it
      live & shared with everyone. -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Free and Feral</title>
+<title>Free &amp; Feral</title>
 
 <!-- Firebase (only used if you fill in the config in the script below) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -39,6 +39,8 @@
   h1{ font-family:"Pirata One","Cormorant Garamond",serif; font-weight:400;
     font-size:clamp(40px,8vw,66px); line-height:.95; margin:.16em 0 .04em;
     color:var(--bone); text-shadow:0 2px 18px rgba(224,87,128,.25); }
+  h1 .amp{ font-family:-apple-system,"Helvetica Neue","Segoe UI",Arial,sans-serif;
+    font-style:normal; font-weight:400; font-size:.6em; padding:0 .1em; vertical-align:.04em; }
   .tagline{ color:var(--muted); font-style:italic; font-size:16px; }
 
   .status{ display:inline-flex; align-items:center; gap:7px; margin-top:10px;
@@ -98,6 +100,14 @@
   .dow{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:8px; }
   .dow span{ text-align:center; color:var(--muted); font-family:"EB Garamond",serif;
     text-transform:uppercase; letter-spacing:.12em; font-size:11px; }
+  .modebar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .modetoggle{ display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:3px; background:var(--ink); }
+  .modetoggle .mbtn{ background:transparent; border:none; color:var(--muted); border-radius:999px;
+    padding:7px 15px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+  .modetoggle .mbtn.active{ background:var(--rose-deep); color:var(--bone); box-shadow:0 0 14px -4px var(--rose); }
+  .modehint{ color:var(--muted); font-size:14px; font-style:italic; }
+  .grid.quick .cell:not(.blank){ cursor:cell; }
+  .grid.quick{ touch-action:none; -webkit-user-select:none; user-select:none; }
   .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
   .cell{ position:relative; min-height:104px; border:1px solid var(--line);
     border-radius:11px; background:var(--ink); padding:7px 7px 9px; cursor:pointer;
@@ -216,7 +226,7 @@
 <div class="wrap">
   <header class="masthead">
     <div class="moonline">when we're all free</div>
-    <h1>Free &amp; Feral</h1>
+    <h1>Free <span class="amp">&amp;</span> Feral</h1>
     <div class="tagline">Mark your busy hours, gather the ideas, and find the days we can all run off together.</div>
     <div><span class="status" id="status"><span class="led"></span><span id="statusText">Local only</span></span></div>
   </header>
@@ -243,6 +253,13 @@
       </div>
     </div>
     <div class="dow"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+    <div class="modebar">
+      <div class="modetoggle" id="modeToggle">
+        <button class="mbtn active" data-mode="edit">Edit hours</button>
+        <button class="mbtn" data-mode="quick">Quick-busy</button>
+      </div>
+      <span class="modehint" id="modeHint">Tap a day to set morning / afternoon / evening.</span>
+    </div>
     <div class="grid" id="grid"></div>
     <p class="legend-note">
       Each day has three slivers — <b>morning · afternoon · evening</b> — that fill with your color when you mark yourself <b>busy</b> then.
@@ -314,7 +331,7 @@
 (function(){
   /* ============================================================
      STEP 1 OF SETUP — paste your Firebase config between the { }.
-     Leave it empty and Free &amp; Feral runs locally on this device only.
+     Leave it empty and Free and Feral runs locally on this device only.
      (Instructions were shared with you separately.)
      ============================================================ */
   const firebaseConfig = {
@@ -337,6 +354,7 @@
   // ---- state (single source of truth) ----
   let state={ friends:{}, busy:{}, acts:{}, trips:{} };
   let activeId=null, view=new Date(), popKey=null;
+  let mode="edit", painting=false, paintBusy=true, paintTouched=null;
 
   const $=s=>document.querySelector(s);
   const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -386,6 +404,11 @@
   function openSegments(key){
     const fr=ordFriends(); if(fr.length<2) return [];
     return SEGS.filter(s=>fr.every(f=>!getCell(key,f.id)[s.k])).map(s=>s.name);
+  }
+  function isAllBusy(key,fid){ const c=getCell(key,fid); return c.m&&c.a&&c.e; }
+  function quickSet(key,busy){
+    if(!activeId) return;
+    setCell(key,activeId, busy?{m:true,a:true,e:true}:{m:false,a:false,e:false});
   }
 
   // ---- friends ----
@@ -486,10 +509,19 @@
         } else { seg.innerHTML='<span class="lbl">'+s.name[0]+'</span>'; }
         segWrap.appendChild(seg); });
       cell.appendChild(segWrap);
-      cell.addEventListener("click",()=>openPop(key));
+      cell.dataset.key=key;
+      // clear feedback: tint the cell when the active person is busy that day
+      if(activeId){ const mc=getCell(key,activeId);
+        if(mc.m||mc.a||mc.e){ const col=state.friends[activeId].color;
+          cell.style.background=hexA(col, (mc.m&&mc.a&&mc.e)?0.30:0.16);
+          cell.style.borderColor=col; cell.classList.remove("mutual"); } }
+      cell.addEventListener("click",()=>{ if(mode==="quick") return; openPop(key); });
       grid.appendChild(cell);
     }
+    $("#grid").classList.toggle("quick", mode==="quick");
   }
+  function hexA(hex,a){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/(.)/g,"$1$1"):h,16);
+    return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")"; }
 
   // ---- recap ----
   function renderRecap(){
@@ -628,6 +660,48 @@
   function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
   // ---- events ----
+  // mode toggle (Edit hours vs Quick-busy)
+  $("#modeToggle").addEventListener("click",e=>{
+    const b=e.target.closest(".mbtn"); if(!b) return;
+    mode=b.dataset.mode;
+    document.querySelectorAll("#modeToggle .mbtn").forEach(x=>x.classList.toggle("active",x.dataset.mode===mode));
+    $("#modeHint").textContent = mode==="quick"
+      ? "Tap or drag across days to mark them busy all day. Tap again to clear."
+      : "Tap a day to set morning / afternoon / evening.";
+    renderCalendar();
+  });
+
+  // quick-busy: a tap toggles a day; a press-drag paints a clump
+  let didDrag=false;
+  function cellKeyFromPoint(x,y){ const el=document.elementFromPoint(x,y); const c=el&&el.closest&&el.closest(".cell"); return (c&&!c.classList.contains("blank"))?c.dataset.key:null; }
+  $("#grid").addEventListener("pointerdown",e=>{
+    if(mode!=="quick") return;
+    const c=e.target.closest(".cell"); if(!c||c.classList.contains("blank")) return;
+    if(!activeId){ alert("Tap your name first so it knows whose days to mark."); return; }
+    const key=c.dataset.key;
+    painting=true; didDrag=false; paintTouched=new Set([key]);
+    paintBusy=!isAllBusy(key,activeId);   // direction set by the first day
+  });
+  document.addEventListener("pointermove",e=>{
+    if(!painting) return;
+    const key=cellKeyFromPoint(e.clientX,e.clientY);
+    if(!key || paintTouched.has(key)) return;
+    if(!didDrag){ didDrag=true; const a=[...paintTouched][0]; quickSet(a,paintBusy); } // commit the anchor on first drag
+    paintTouched.add(key); quickSet(key,paintBusy); renderCalendar();
+  });
+  function endPaint(){ if(!painting) return; painting=false; paintTouched=null; if(didDrag) render(); }
+  document.addEventListener("pointerup",endPaint);
+  document.addEventListener("pointercancel",endPaint);
+  // single tap (works even where pointer drag doesn't): toggle one day
+  $("#grid").addEventListener("click",e=>{
+    if(mode!=="quick") return;
+    if(didDrag){ didDrag=false; return; }   // a drag already handled it
+    const c=e.target.closest(".cell"); if(!c||c.classList.contains("blank")) return;
+    if(!activeId){ alert("Tap your name first so it knows whose days to mark."); return; }
+    const key=c.dataset.key;
+    quickSet(key,!isAllBusy(key,activeId)); render();
+  });
+
   $("#addBtn").addEventListener("click",addFriend);
   $("#nameInput").addEventListener("keydown",e=>{ if(e.key==="Enter") addFriend(); });
   $("#actAdd").addEventListener("click",addAct);
